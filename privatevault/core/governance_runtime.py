@@ -1,10 +1,9 @@
-"""Minimal compatibility shim for GovernanceRuntime.
-This ensures imports work after structure changes without rewriting core logic.
-The full implementation is in the root governance_runtime.py or prior work.
+"""GovernanceRuntime compatibility shim.
+Ensures imports work after structure changes. Delegates to real implementation if available.
 """
 from dataclasses import dataclass
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from typing import Any, Dict, Optional
 import uuid
 
@@ -12,7 +11,7 @@ import uuid
 class ExecutionLineage:
     execution_id: str
     tenant_id: str = "default"
-    authority_chain: list = None
+    authority_chain: List[str] = None
     trust_score: float = 1.0
     evidence_bundle_hash: str = ""
     replay_reference: str = ""
@@ -40,7 +39,7 @@ class GovernanceRuntime:
             decision="ALLOW"
         )
         try:
-            result = executor(getattr(action, "parameters", action))
+            result = executor(getattr(action, "parameters", action) if hasattr(action, "parameters") else action)
             return {
                 "status": "success",
                 "execution_id": execution_id,

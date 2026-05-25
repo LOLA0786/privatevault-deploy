@@ -1,6 +1,43 @@
-# Sovereign SDK: Security & Cryptographic Attestation Protocol
+# PrivateVault Security
 
-This document outlines the security architecture of the **Galani Protocol**. It is designed for high-stakes environments where AI intent must be governed by deterministic laws rather than probabilistic filters.
+## Threat Model
+
+PrivateVault assumes autonomous systems are probabilistic. Execution must remain deterministic, reconstructable, and explicitly authorized. Governance must fail-closed.
+
+### Key Assumptions
+- Authority must be explicit and validated at runtime
+- Replay integrity and evidence hashes are critical
+- Tenant isolation must be strictly enforced
+- Model drift triggers escalation
+- All execution paths flow through GovernanceRuntime (no bypasses)
+
+### Critical Controls
+- Tenant validation on every request
+- Authority chain + TTL + delegation boundary checks
+- Replay verification before execution
+- Tamper-evident Merkle-linked audit lineage
+- Deterministic serialization (sort_keys=True, frozen contexts)
+- Fail-closed on any violation
+
+See `docs/threat-model.md` (or governance docs) for full details.
+
+## Known Limitations (Alpha)
+- Concurrency hardening in progress (use in low-contention environments)
+- Policy engine consolidation ongoing
+- Provider adapters (OpenAI/Grok/Claude) under validation
+- Replay determinism benchmarks pending full production guarantees
+- Not yet certified for regulated production use
+
+## Unsupported Configurations
+- Direct calls bypassing GovernanceRuntime.decide_and_execute()
+- Shared tenants without explicit isolation
+- Non-deterministic serialization
+- Production without human escalation paths for high-risk actions
+
+## Disclosure Policy
+Responsible disclosure to chandan.galani@privatevault.ai (Pentaprime Solutions Inc). We follow standard coordinated disclosure timelines. See CONTRIBUTING.md.
+
+PrivateVault is alpha. Use in isolated/sandbox environments only.
 
 ## 🛡️ The Zero-Trust Architecture
 
