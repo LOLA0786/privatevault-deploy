@@ -1,0 +1,75 @@
+__pycache__/
+*.pyc
+*.log
+*.zip
+*.bak
+*.svg
+*.dot
+*.pkl
+*.pth
+node_modules/
+.env
+test_diagnostics_*
+dump.rdb
+audit_report.json
+ai_firewall_ledger.jsonl
+venv/
+__pycache__/
+*.pyc
+die/core/__pycache__/
+die/tests/__pycache__/
+die/__pycache__/
+test_diagnostics_*
+dump.rdb
+audit_report.json
+ai_firewall_ledger.jsonl
+venv/
+__pycache__/
+*.pyc
+die/core/__pycache__/
+die/tests/__pycache__/
+die/__pycache__/
+evidence.jsonl
+
+# PrivateVault demo artifacts
+__pycache__/
+*.pyc
+/tmp/
+pv_home/
+
+# Attack simulations
+fake_litellm_install.py
+malicious_package_sim.py
+
+# Local runtime artifacts
+evidence.jsonl
+
+
+# Runtime trust state
+coordination/trust/trust_state.json
+
+# Build / temp
+build/
+dist/
+*.egg-info/
+.hypothesis/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+pv_events.log
+
+# Local env
+.env
+*.scratch.json
+input.json
+output.json
+clean.json
+nohup.out
+audit_*.json
+__pycache__/
+*.patch
+pv_cost_layer/router/learning_store.json
