@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: privatevault
       POSTGRES_USER: pvuser
-      POSTGRES_PASSWORD: pvpass123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
     ports:
     - 5432:5432
     volumes:
@@ -38,8 +38,8 @@ services:
     ports:
     - 3001:3001
     environment:
-      DATABASE_URL: postgresql://pvuser:pvpass123@postgres:5432/privatevault
-      JWT_SECRET: dev-jwt-secret-change-me
+      DATABASE_URL: postgresql://pvuser:${POSTGRES_PASSWORD:-change-me-in-production}@postgres:5432/privatevault
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please-use-secure-random}
       PORT: 3001
     depends_on:
     - postgres
@@ -49,9 +49,9 @@ services:
     ports:
     - 3002:3002
     environment:
-      DATABASE_URL: postgresql://pvuser:pvpass123@postgres:5432/privatevault
+      DATABASE_URL: postgresql://pvuser:${POSTGRES_PASSWORD:-change-me-in-production}@postgres:5432/privatevault
       KAFKA_BROKERS: kafka:9092
-      SIGNING_KEY: dev-signing-key-change-me
+      SIGNING_KEY: ${SIGNING_KEY:-change-me-in-production-please-use-secure-random}
       PORT: 3002
     depends_on:
     - postgres
@@ -62,7 +62,7 @@ services:
     ports:
     - 3003:3003
     environment:
-      DATABASE_URL: postgresql://pvuser:pvpass123@postgres:5432/privatevault
+      DATABASE_URL: postgresql://pvuser:${POSTGRES_PASSWORD:-change-me-in-production}@postgres:5432/privatevault
       STRIPE_SECRET_KEY: ''
       PORT: 3003
     depends_on:

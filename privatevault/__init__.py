@@ -1,28 +1,16 @@
-def evaluate(query, hydra_res):
-    # lazy import so pytest collection doesn’t break
-    from pv_runtime.entrypoint import execute_action
+"""PrivateVault Runtime Package.
 
-    try:
-        from show_audit import build_audit
-    except Exception:
-        build_audit = None
+Canonical entrypoint for governance runtime.
+All execution must flow through GovernanceRuntime.
+"""
 
-    intent = {
-        "action": "risk_assess",
-        "recipient": "user",
-        "metadata": hydra_res
-    }
+from ..governance_runtime import get_governance_runtime, GovernanceRuntime, ExecutionLineage, ExecutionContext
+from .core.execution_entrypoint import ExecutionEntrypoint
 
-    decision = {"status": "ALLOW"}
+__all__ = ["get_governance_runtime", "GovernanceRuntime", "ExecutionLineage", "ExecutionContext", "ExecutionEntrypoint"]
 
-    result = execute_action(intent, decision)
-
-    if build_audit:
-        audit = build_audit(query, hydra_res, result)
-        return {
-            "result": result,
-            "audit_id": audit.get("audit_id"),
-            "hash": audit.get("hash")
-        }
-
-    return {"result": result}
+# Compatibility shim for legacy imports
+try:
+    from ..policy_engine import authorize_intent
+except ImportError:
+    authorize_intent = None
