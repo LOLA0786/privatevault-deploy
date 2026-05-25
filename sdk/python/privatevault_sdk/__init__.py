@@ -5,6 +5,12 @@ from privatevault_sdk.approvals import create_approval
 from privatevault_sdk.quorum import validate_quorum
 from privatevault_sdk.evidence import export_evidence
 from privatevault_sdk.verify import verify_manifest
+# New governance-native clients (additive)
+from privatevault_sdk.governance import GovernanceClient, RuntimeClient
+from privatevault_sdk.types import (
+    ExecutionRequest, GovernanceResponse, ExecutionLineage,
+    AuthorityValidationResponse, ReplayResponse, AuditEvent
+)
 
 __all__ = [
     "Client",
@@ -15,4 +21,12 @@ __all__ = [
     "validate_quorum",
     "export_evidence",
     "verify_manifest",
+    "GovernanceClient",
+    "RuntimeClient",
+    "ExecutionRequest",
+    "GovernanceResponse",
+    "ExecutionLineage",
+    "AuthorityValidationResponse",
+    "ReplayResponse",
+    "AuditEvent",
 ]

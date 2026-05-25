@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+from datetime import datetime
 
 
 @dataclass
@@ -84,3 +85,45 @@ class ApprovalRecord:
     tenant_id: Optional[str] = None
     action: Optional[str] = None
     timestamp: Optional[str] = None
+
+
+# Governance types for CLI/SDK (additive)
+@dataclass
+class ExecutionRequest:
+    tenant_id: str
+    authority_chain: List[str]
+    action: Dict[str, Any]
+    intent: Optional[str] = None
+    regulated_mode: bool = False
+
+
+@dataclass
+class GovernanceResponse:
+    status: str
+    correlation_id: str
+    replay_reference: str
+    lineage: Any  # ExecutionLineage or dict
+    result: Optional[Any] = None
+    evidence_hash: Optional[str] = None
+    audit_event: Optional[Dict] = None
+
+
+@dataclass
+class AuthorityValidationResponse:
+    valid: bool
+    reason: str
+    trust_score: float
+    correlation_id: str
+
+
+@dataclass
+class ReplayResponse:
+    replay_reference: str
+    status: str
+    correlation_id: str
+    lineage: Any
+    verified: bool
+
+
+# Alias for backward compat with governance.py import
+ExecutionLineage = "privatevault.ExecutionLineage"  # resolved at runtime via privatevault shim
