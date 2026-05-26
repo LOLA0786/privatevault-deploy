@@ -1,68 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  color-scheme: dark;
+  color: #e2e8f0;
+  background-color: #050505;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  min-width: 100vw;
   min-height: 100vh;
+  overflow-x: hidden;
+  background: radial-gradient(circle at 50% 20%, rgba(14, 165, 233, 0.08) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 60%);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Cinematic atmospheric effects */
+.cinematic-bg {
+  position: fixed;
+  inset: 0;
+  background: 
+    linear-gradient(180deg, #050505 0%, #0a0a0a 100%),
+    radial-gradient(circle at 30% 20%, rgba(14, 165, 233, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(168, 85, 247, 0.12) 0%, transparent 50%);
+  z-index: -2;
+  pointer-events: none;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  z-index: -1;
+  pointer-events: none;
+  animation: grid-shift 60s linear infinite;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+@keyframes grid-shift {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 40px; }
+}
+
+/* Volumetric glows and cinematic lighting */
+.glow-blue {
+  box-shadow: 0 0 20px -5px rgb(14 165 233), 
+              0 0 40px -10px rgb(14 165 233 / 0.5),
+              0 0 60px -15px rgb(14 165 233 / 0.3);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px -5px rgb(168 85 247), 
+              0 0 40px -10px rgb(168 85 247 / 0.5),
+              0 0 60px -15px rgb(168 85 247 / 0.3);
+}
+
+.volumetric-glow {
+  filter: drop-shadow(0 25px 25px rgb(14 165 233 / 0.3));
+}
+
+/* Motion keyframes for runtime storytelling */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.3); }
+}
+
+@keyframes flow {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: -100; }
+}
+
+@keyframes reconstruct {
+  0% { stroke-dashoffset: 200; opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes lineage-illumination {
+  0% { filter: brightness(1) hue-rotate(0deg); }
+  50% { filter: brightness(2) hue-rotate(20deg); }
+  100% { filter: brightness(1.5) hue-rotate(0deg); }
+}
+
+h1, h2 {
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.terminal-glow {
+  box-shadow: inset 0 0 60px rgba(14, 165, 233, 0.15);
+}
+
+/* Reduce motion respect */
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-bg, .grid-overlay, [class*="animate-"] {
+    animation: none !important;
   }
 }
