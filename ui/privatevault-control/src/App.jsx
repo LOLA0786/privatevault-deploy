@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import HeroScene from './scenes/HeroScene';
 import RuntimeTopologyScene from './scenes/RuntimeTopologyScene';
 import TrustPropagationScene from './scenes/TrustPropagationScene';
 import ReplayReconstructionScene from './scenes/ReplayReconstructionScene';
+import { runtimeSimulator } from './api';
 
 // New platform layers — all integrated into cinematic runtime language
 const ArchitectureLayer = () => (
@@ -51,20 +52,67 @@ const DocsLayer = () => (
   </div>
 );
 
-const CLILayer = () => (
-  <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-    <div className="max-w-2xl text-center">
-      <div className="font-mono text-xs tracking-[4px] text-emerald-400 mb-8">pvctl — SOVEREIGN GOVERNANCE SHELL</div>
-      <h1 className="text-6xl font-light tracking-tighter mb-8">Command Line Interface</h1>
-      <p className="text-xl text-white/60 mb-16">Deterministic, kubectl-like interface to the runtime. Every command returns verifiable lineage.</p>
-      {/* Embedded CLI simulation could go here */}
-      <div className="bg-black border border-white/10 p-8 rounded-3xl font-mono text-left text-sm text-emerald-300/80">
-        $ pvctl execute --tenant acme-prod --authority risk-engine,finance-approver<br/>
-        ✓ Executed. Replay: rv_8f3a9c2e | Trust: 0.87
+const CLILayer = () => {
+  const [output, setOutput] = React.useState('');
+  const [isRunning, setIsRunning] = React.useState(false);
+  const terminalRef = React.useRef(null);
+
+  const runCLICommand = async (cmd) => {
+    setIsRunning(true);
+    setOutput('> ' + cmd + '\n');
+    
+    const lines = runtimeSimulator.getCLIOutput(cmd.replace('pvctl ', '')).split('\n');
+    
+    for (let line of lines) {
+      await new Promise(resolve => setTimeout(resolve, 180)); // realistic streaming timing
+      setOutput(prev => prev + line + '\n');
+    }
+    
+    setTimeout(() => {
+      setOutput(prev => prev + '\n✓ Command completed. Lineage persisted.\n');
+      setIsRunning(false);
+    }, 800);
+  };
+
+  React.useEffect(() => {
+    // Auto-demo on mount - deterministic pvctl execute
+    const timer = setTimeout(() => runCLICommand('pvctl execute'), 600);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-8 relative overflow-hidden">
+      <div className="max-w-3xl w-full">
+        <div className="font-mono text-xs tracking-[4px] text-emerald-400 mb-6 text-center">pvctl — SOVEREIGN GOVERNANCE SHELL</div>
+        <div className="text-center mb-12">
+          <h1 className="text-6xl font-light tracking-tighter text-white">Runtime Terminal</h1>
+          <p className="text-xl text-white/60 mt-4">Deterministic execution. Every command produces verifiable cryptographic lineage.</p>
+        </div>
+        
+        <div ref={terminalRef} className="terminal-glow bg-black border border-emerald-500/30 rounded-3xl p-8 font-mono text-sm text-emerald-300/90 h-[420px] overflow-auto whitespace-pre leading-relaxed shadow-inner">
+          {output || 'Initializing sovereign runtime shell...\nReady for governed execution.\n\nType: pvctl execute | replay | lineage | trust\n'}
+        </div>
+
+        <div className="flex gap-3 mt-6 justify-center flex-wrap">
+          {['execute', 'replay', 'lineage', 'trust', 'escalate'].map(cmd => (
+            <motion.button
+              key={cmd}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => runCLICommand(`pvctl ${cmd}`)}
+              disabled={isRunning}
+              className="px-6 py-3 bg-black border border-white/20 hover:border-emerald-400 rounded-2xl text-xs font-mono tracking-widest text-white/70 hover:text-emerald-300 transition-all disabled:opacity-50"
+            >
+              pvctl {cmd}
+            </motion.button>
+          ))}
+        </div>
+        
+        <div className="text-center mt-8 text-[10px] font-mono text-white/30">All outputs are deterministic • Trust decay applied in real-time • Replay always available</div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const EnterpriseLayer = () => (
   <div className="min-h-screen bg-[#050505] p-16 flex items-center">

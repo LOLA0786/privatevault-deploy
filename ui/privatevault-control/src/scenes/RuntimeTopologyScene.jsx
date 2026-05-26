@@ -33,37 +33,60 @@ const nodeTypes = {
   }
 };
 
-const RuntimeTopologyScene = ({ isActive }) => {
+const RuntimeTopologyScene = ({ isActive = true, onNodeClick, scenario = 'multi-agent' }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [replaying, setReplaying] = useState(false);
+  const [currentScenario, setCurrentScenario] = useState(scenario);
 
-  const initializeFullScreenTopology = useCallback(() => {
-    const baseNodes = [
-      { id: 'root', type: 'agent', position: { x: 420, y: 80 }, data: { label: 'Intent Pulse', role: 'ORIGIN', trust: 0.98 } },
-      { id: 'risk', type: 'agent', position: { x: 120, y: 220 }, data: { label: 'Risk Engine', role: 'VALIDATOR', trust: 0.94 } },
-      { id: 'mesh', type: 'agent', position: { x: 680, y: 180 }, data: { label: 'Agent Mesh', role: 'COORDINATOR', trust: 0.91 } },
-      { id: 'policy', type: 'agent', position: { x: 320, y: 380 }, data: { label: 'Policy Engine', role: 'GOVERNANCE', trust: 0.89 } },
-      { id: 'finance', type: 'agent', position: { x: 820, y: 340 }, data: { label: 'Finance Approver', role: 'EXECUTOR', trust: 0.87 } },
-      { id: 'audit', type: 'agent', position: { x: 520, y: 520 }, data: { label: 'Lineage Auditor', role: 'REPLAY', trust: 0.93 } },
-    ];
+  const initializeFullScreenTopology = useCallback((scenarioType = currentScenario) => {
+    let baseNodes = [];
+    let baseEdges = [];
 
-    const baseEdges = [
-      { id: 'e1', source: 'root', target: 'risk', animated: true, style: { stroke: '#67e8f9', strokeWidth: 3 } },
-      { id: 'e2', source: 'root', target: 'mesh', animated: true, style: { stroke: '#c084fc', strokeWidth: 3 } },
-      { id: 'e3', source: 'risk', target: 'policy', animated: true, style: { stroke: '#a5f3fc', strokeWidth: 2.5 } },
-      { id: 'e4', source: 'mesh', target: 'finance', animated: true, style: { stroke: '#f9a8d4', strokeWidth: 2.5 } },
-      { id: 'e5', source: 'policy', target: 'audit', animated: true, style: { stroke: '#67e8f9', strokeWidth: 3 } },
-      { id: 'e6', source: 'finance', target: 'audit', animated: true, style: { stroke: '#c4b5fd', strokeWidth: 2 } },
-    ];
+    if (scenarioType === 'drift-escalation') {
+      // High-stakes unauthorized delegation scenario
+      baseNodes = [
+        { id: 'root', type: 'agent', position: { x: 400, y: 60 }, data: { label: 'Intent Pulse', role: 'ORIGIN', trust: 0.98 } },
+        { id: 'risk', type: 'agent', position: { x: 80, y: 220 }, data: { label: 'Risk Engine', role: 'VALIDATOR', trust: 0.72 } },
+        { id: 'mesh', type: 'agent', position: { x: 720, y: 160 }, data: { label: 'Agent Mesh', role: 'DELEGATOR', trust: 0.41 } }, // decayed
+        { id: 'policy', type: 'agent', position: { x: 280, y: 420 }, data: { label: 'Policy Engine', role: 'GOVERNANCE', trust: 0.65 } },
+        { id: 'finance', type: 'agent', position: { x: 850, y: 380 }, data: { label: 'Finance Approver', role: 'EXECUTOR', trust: 0.38 } },
+        { id: 'audit', type: 'agent', position: { x: 480, y: 560 }, data: { label: 'Lineage Auditor', role: 'REPLAY', trust: 0.94 } },
+      ];
+      baseEdges = [
+        { id: 'e1', source: 'root', target: 'risk', animated: true, style: { stroke: '#67e8f9', strokeWidth: 3 } },
+        { id: 'e2', source: 'root', target: 'mesh', animated: true, style: { stroke: '#f87171', strokeWidth: 4, strokeDasharray: '6 3' } }, // red escalation
+        { id: 'e3', source: 'risk', target: 'policy', animated: true, style: { stroke: '#a5f3fc', strokeWidth: 2.5 } },
+        { id: 'e4', source: 'mesh', target: 'finance', animated: true, style: { stroke: '#f87171', strokeWidth: 3.5 } }, // flashing
+        { id: 'e5', source: 'policy', target: 'audit', animated: true, style: { stroke: '#67e8f9', strokeWidth: 3 } },
+      ];
+    } else {
+      // Default Multi-Agent $1.2M Infrastructure Deployment
+      baseNodes = [
+        { id: 'root', type: 'agent', position: { x: 420, y: 80 }, data: { label: 'Intent Pulse', role: 'ORIGIN', trust: 0.98 } },
+        { id: 'risk', type: 'agent', position: { x: 120, y: 220 }, data: { label: 'Risk Engine', role: 'VALIDATOR', trust: 0.94 } },
+        { id: 'mesh', type: 'agent', position: { x: 680, y: 180 }, data: { label: 'Agent Mesh', role: 'COORDINATOR', trust: 0.91 } },
+        { id: 'policy', type: 'agent', position: { x: 320, y: 380 }, data: { label: 'Policy Engine', role: 'GOVERNANCE', trust: 0.89 } },
+        { id: 'finance', type: 'agent', position: { x: 820, y: 340 }, data: { label: 'Finance Approver', role: 'EXECUTOR', trust: 0.87 } },
+        { id: 'audit', type: 'agent', position: { x: 520, y: 520 }, data: { label: 'Lineage Auditor', role: 'REPLAY', trust: 0.93 } },
+      ];
+      baseEdges = [
+        { id: 'e1', source: 'root', target: 'risk', animated: true, style: { stroke: '#67e8f9', strokeWidth: 3 } },
+        { id: 'e2', source: 'root', target: 'mesh', animated: true, style: { stroke: '#c084fc', strokeWidth: 3 } },
+        { id: 'e3', source: 'risk', target: 'policy', animated: true, style: { stroke: '#a5f3fc', strokeWidth: 2.5 } },
+        { id: 'e4', source: 'mesh', target: 'finance', animated: true, style: { stroke: '#f9a8d4', strokeWidth: 2.5 } },
+        { id: 'e5', source: 'policy', target: 'audit', animated: true, style: { stroke: '#67e8f9', strokeWidth: 3 } },
+        { id: 'e6', source: 'finance', target: 'audit', animated: true, style: { stroke: '#c4b5fd', strokeWidth: 2 } },
+      ];
+    }
 
     setNodes(baseNodes);
     setEdges(baseEdges);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, currentScenario]);
 
   useEffect(() => {
     if (isActive) {
-      initializeFullScreenTopology();
+      initializeFullScreenTopology(currentScenario);
       
       // Continuous living execution — flowing delegation, node awakenings, trust trails
       const interval = setInterval(() => {
@@ -72,43 +95,48 @@ const RuntimeTopologyScene = ({ isActive }) => {
           animated: true,
           style: { 
             ...edge.style, 
-            stroke: i % 2 === 0 ? '#67e8f9' : '#a855f7',
-            strokeWidth: 2.5,
+            stroke: currentScenario === 'drift-escalation' && i % 2 === 0 ? '#f87171' : (i % 2 === 0 ? '#67e8f9' : '#a855f7'),
+            strokeWidth: currentScenario === 'drift-escalation' ? 3.5 : 2.5,
             strokeDasharray: i % 3 === 0 ? '8 4' : undefined
           }
         })));
-      }, 1600); // alive but deliberate flow
+      }, currentScenario === 'drift-escalation' ? 800 : 1600); // faster pulsing for high-stakes drift
 
       return () => clearInterval(interval);
     }
-  }, [isActive, initializeFullScreenTopology, setEdges]);
+  }, [isActive, initializeFullScreenTopology, setEdges, currentScenario]);
 
-  const triggerReplayReconstruction = () => {
+  const triggerReplayReconstruction = useCallback((nodeId = null) => {
     setReplaying(true);
     const replayData = runtimeSimulator.getReplay('rv_8f3a9c2e');
     
     // Forensic, deterministic reconstruction sweep (cryptographic inevitability)
     const illuminatedEdges = replayData.lineage.map((step, index) => ({
       id: `replay-${index}`,
-      source: step.agent === 'risk-engine' ? 'risk' : (step.agent.includes('mesh') ? 'mesh' : 'policy'),
+      source: step.agent.includes('risk') ? 'risk' : (step.agent.includes('mesh') || step.agent.includes('finance') ? 'mesh' : 'policy'),
       target: 'audit',
       animated: true,
       style: { 
         stroke: '#a855f7', 
-        strokeWidth: 3.5, 
-        strokeDasharray: '8 4',
+        strokeWidth: 4, 
+        strokeDasharray: '12 6',
         strokeDashoffset: 0 
       }
     }));
     
-    setEdges(illuminatedEdges);
+    setEdges(prev => [...prev, ...illuminatedEdges]);
     
-    // Precise 4.2s forensic duration matching lineage steps
+    // Clicked node illumination for replay reconstruction interaction
+    if (nodeId && onNodeClick) {
+      onNodeClick(nodeId, replayData);
+    }
+    
+    // Precise 4.2s forensic duration matching lineage steps (cinematic restraint)
     setTimeout(() => {
       setReplaying(false);
-      initializeFullScreenTopology();
+      initializeFullScreenTopology(currentScenario);
     }, 4200);
-  };
+  }, [onNodeClick, initializeFullScreenTopology, currentScenario]);
 
   return (
     <div className="relative h-screen w-full bg-[#050505] overflow-hidden">
@@ -133,11 +161,28 @@ const RuntimeTopologyScene = ({ isActive }) => {
       {/* Scene label */}
       <div className="absolute top-8 left-8 font-mono text-xs tracking-[3px] text-white/40 z-20">
         RUNTIME TOPOLOGY — THE LIVING INTERFACE
+        {currentScenario === 'drift-escalation' && <span className="text-red-400 ml-3">• DRIFT ESCALATION ACTIVE</span>}
+      </div>
+
+      {/* Scenario selector for credible demonstrations */}
+      <div className="absolute top-8 right-8 flex gap-2 z-30">
+        <motion.button 
+          onClick={() => { setCurrentScenario('multi-agent'); initializeFullScreenTopology('multi-agent'); }}
+          className={`px-5 py-2 text-xs font-mono rounded-2xl border transition-all ${currentScenario === 'multi-agent' ? 'border-sky-400 text-sky-400' : 'border-white/20 text-white/50 hover:border-white/40'}`}
+        >
+          MULTI-AGENT EXECUTION
+        </motion.button>
+        <motion.button 
+          onClick={() => { setCurrentScenario('drift-escalation'); initializeFullScreenTopology('drift-escalation'); }}
+          className={`px-5 py-2 text-xs font-mono rounded-2xl border transition-all ${currentScenario === 'drift-escalation' ? 'border-red-400 text-red-400' : 'border-white/20 text-white/50 hover:border-white/40'}`}
+        >
+          DRIFT ESCALATION
+        </motion.button>
       </div>
 
       {/* Replay trigger - minimal floating control */}
       <motion.button
-        onClick={triggerReplayReconstruction}
+        onClick={() => triggerReplayReconstruction()}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.98 }}
         className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 px-8 py-4 border border-purple-500/50 hover:border-purple-400 text-purple-400 rounded-3xl text-sm font-mono tracking-widest flex items-center gap-3 transition-all"
