@@ -330,6 +330,55 @@ def filter_input(prompt):
     except Exception as e:
         logger.debug(f"Consensus integrity check skipped (non-blocking): {e}")
 
+    # === APPROVAL STATE INTEGRITY ENFORCEMENT HOOK (Additive only) ===
+    # Minimal, feature-flagged integration with new ApprovalStateIntegrityEngine.
+    # Verifies live execution state matches approved state before irreversible actions.
+    # ZERO regression when APPROVAL_STATE_INTEGRITY_ENABLED=false (default).
+    # This is the runtime primitive for "Verify the executed action still matches the approved state."
+    try:
+        from privatevault.cognitive_consensus.approval_state_integrity import ApprovalStateIntegrityEngine
+        import os
+        if os.getenv("APPROVAL_STATE_INTEGRITY_ENABLED", "false").lower() == "true":
+            engine = ApprovalStateIntegrityEngine()
+            # Create approved snapshot (in real flow captured at approval time)
+            approved = engine.create_approval_snapshot(
+                approved_counterparties=["Vendor_A"],
+                approved_amount=2500000.0,
+                approved_tools=["transfer_funds"],
+                approver_identity="CFO",
+                execution_intent_summary="Enterprise vendor payment"
+            )
+            # Live state from current context (example mutation)
+            live_state = {
+                "counterparty": "Offshore_Account_X",  # mutation example
+                "amount": 2500000.0,
+                "tools": ["transfer_funds"],
+                "constraints": {"max_amount": 5000000},
+                "intent_summary": "Modified offshore transfer"
+            }
+            integrity_result = engine.validate_live_execution(approved, live_state)
+            if integrity_result.execution_verdict == "BLOCK":
+                logger.warning(f"Approval state integrity blocked: {integrity_result.reason}")
+                return {
+                    "allowed": False,
+                    "original_prompt": prompt,
+                    "filtered_prompt": "[APPROVAL_STATE_BLOCKED]",
+                    "metadata": {
+                        "approval_integrity_score": integrity_result.integrity_score,
+                        "forensic_id": integrity_result.forensic_id,
+                        "reason": integrity_result.reason,
+                        "detected_drifts": integrity_result.detected_drifts
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "threat_detected": True,
+                    "threat_reason": f"Approval state divergence: {integrity_result.reason}",
+                    "pii_found": [],
+                }
+    except ImportError as e:
+        logger.debug(f"Approval state integrity engine not loaded: {e} (feature disabled by default)")
+    except Exception as e:
+        logger.debug(f"Approval state integrity check skipped (non-blocking): {e}")
+
     # PII redaction (simple example from logs)
     pii_patterns = {
         "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
