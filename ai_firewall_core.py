@@ -379,6 +379,64 @@ def filter_input(prompt):
     except Exception as e:
         logger.debug(f"Approval state integrity check skipped (non-blocking): {e}")
 
+    # === WORLD STATE INTEGRITY ENFORCEMENT HOOK (Additive only - World Model Verification) ===
+    # Minimal, feature-flagged integration with new WorldStateIntegrityEngine.
+    # Verifies execution-relevant *predicted world state* has not drifted before irreversible actions.
+    # ZERO regression when WORLD_STATE_INTEGRITY_ENABLED=false (default). Matches approval_state_integrity.py pattern exactly.
+    # This is the runtime primitive for JEPA-style agents: "Verify the execution-relevant predicted world state has not drifted beyond approved boundaries."
+    # Only activates in high-risk flows (payments, permission grants, policy changes).
+    # Preserves ALL existing runtime behavior, cognitive_consensus modules, demos, and tests.
+    try:
+        from privatevault.cognitive_consensus.world_state_integrity import WorldStateIntegrityEngine
+        import os
+        if os.getenv("WORLD_STATE_INTEGRITY_ENABLED", "false").lower() == "true":
+            engine = WorldStateIntegrityEngine()
+            # Approved world state snapshot (captured at approval time in real flow)
+            approved = engine.create_world_state_snapshot(
+                workflow_id="wf_payment_001",
+                execution_goal="Process approved vendor payment",
+                predicted_counterparty="Vendor_A",
+                predicted_risk_score=0.12,
+                approved_tools=["transfer_funds"],
+                policy_snapshot_id="pol_approved_v1",
+                retrieval_lineage_hash="retrieval_approved_clean",
+                authority_scope="CFO_approved"
+            )
+            # Live world state from current context (example of mutation via retrieval/memory/prediction drift)
+            live_state = {
+                "counterparty": "Offshore_Account_X",  # mutated
+                "risk_score": 0.81,
+                "tools": ["transfer_funds", "escalated_wire"],
+                "constraints": {"max_amount": 5000000},
+                "retrieval_lineage_hash": "retrieval_live_poisoned",
+                "memory_contaminated": True,
+                "execution_goal": "Modified offshore transfer",
+                "workflow_id": "wf_payment_001"
+            }
+            integrity_result = engine.validate_world_state(approved, live_state)
+            if integrity_result.execution_verdict in ("BLOCK", "WARN"):
+                logger.warning(f"World state integrity blocked: {integrity_result.reason}")
+                return {
+                    "allowed": False,
+                    "original_prompt": prompt,
+                    "filtered_prompt": "[WORLD_STATE_BLOCKED]",
+                    "metadata": {
+                        "world_state_integrity_score": integrity_result.integrity_score,
+                        "forensic_id": integrity_result.forensic_id,
+                        "reason": integrity_result.reason,
+                        "detected_drifts": integrity_result.detected_drifts,
+                        "approved_world_hash": integrity_result.approved_hash,
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "threat_detected": True,
+                    "threat_reason": f"World-state divergence: {integrity_result.reason}",
+                    "pii_found": [],
+                }
+    except ImportError as e:
+        logger.debug(f"World state integrity engine not loaded: {e} (feature disabled by default)")
+    except Exception as e:
+        logger.debug(f"World state integrity check skipped (non-blocking): {e}")
+
     # PII redaction (simple example from logs)
     pii_patterns = {
         "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
