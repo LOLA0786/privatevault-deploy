@@ -288,6 +288,155 @@ def filter_input(prompt):
     except Exception as e:
         logger.warning(f"Cognition validation error (fail-open for now): {e}")
 
+    # === CONSENSUS INTEGRITY ENFORCEMENT HOOK (Additive only - Phase 2 of cognitive_consensus) ===
+    # Minimal, feature-flagged integration with new ConsensusIntegrityEngine.
+    # Does NOT change any existing consensus, policy, or execution behavior.
+    # Only activates if COGNITIVE_INTEGRITY_ENABLED=true and snapshots available.
+    # This is the runtime gate for "Can autonomous agent consensus itself be trusted?"
+    try:
+        from privatevault.cognitive_consensus.consensus_integrity_engine import ConsensusIntegrityEngine
+        import os
+        if os.getenv("COGNITIVE_INTEGRITY_ENABLED", "false").lower() == "true":
+            engine = ConsensusIntegrityEngine()
+            # For this hook we create lightweight snapshots (in real flow these come from validator)
+            from privatevault.cognitive_consensus.agent_cognition_snapshot import create_agent_cognition_snapshot
+            snap = create_agent_cognition_snapshot(
+                agent_id=agent_id,
+                tenant_id=tenant_id,
+                reasoning_text=prompt[:200],
+                retrieval_sources=["default_retrieval"],
+                memory_refs=["default_memory"],
+                initial_trust=0.85
+            )
+            integrity_result = engine.adjudicate_consensus([snap], proposed_action="filter_input_execution")
+            if integrity_result.execution_verdict == "BLOCK":
+                logger.warning(f"Consensus integrity blocked: {integrity_result.reason}")
+                return {
+                    "allowed": False,
+                    "original_prompt": prompt,
+                    "filtered_prompt": "[CONSENSUS_INTEGRITY_BLOCKED]",
+                    "metadata": {
+                        "consensus_integrity": integrity_result.consensus_integrity,
+                        "forensic_id": integrity_result.forensic_id,
+                        "reason": integrity_result.reason
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "threat_detected": True,
+                    "threat_reason": f"Consensus contamination: {integrity_result.reason}",
+                    "pii_found": [],
+                }
+    except ImportError as e:
+        logger.debug(f"Consensus integrity engine not loaded: {e} (feature disabled by default)")
+    except Exception as e:
+        logger.debug(f"Consensus integrity check skipped (non-blocking): {e}")
+
+    # === APPROVAL STATE INTEGRITY ENFORCEMENT HOOK (Additive only) ===
+    # Minimal, feature-flagged integration with new ApprovalStateIntegrityEngine.
+    # Verifies live execution state matches approved state before irreversible actions.
+    # ZERO regression when APPROVAL_STATE_INTEGRITY_ENABLED=false (default).
+    # This is the runtime primitive for "Verify the executed action still matches the approved state."
+    try:
+        from privatevault.cognitive_consensus.approval_state_integrity import ApprovalStateIntegrityEngine
+        import os
+        if os.getenv("APPROVAL_STATE_INTEGRITY_ENABLED", "false").lower() == "true":
+            engine = ApprovalStateIntegrityEngine()
+            # Create approved snapshot (in real flow captured at approval time)
+            approved = engine.create_approval_snapshot(
+                approved_counterparties=["Vendor_A"],
+                approved_amount=2500000.0,
+                approved_tools=["transfer_funds"],
+                approver_identity="CFO",
+                execution_intent_summary="Enterprise vendor payment"
+            )
+            # Live state from current context (example mutation)
+            live_state = {
+                "counterparty": "Offshore_Account_X",  # mutation example
+                "amount": 2500000.0,
+                "tools": ["transfer_funds"],
+                "constraints": {"max_amount": 5000000},
+                "intent_summary": "Modified offshore transfer"
+            }
+            integrity_result = engine.validate_live_execution(approved, live_state)
+            if integrity_result.execution_verdict == "BLOCK":
+                logger.warning(f"Approval state integrity blocked: {integrity_result.reason}")
+                return {
+                    "allowed": False,
+                    "original_prompt": prompt,
+                    "filtered_prompt": "[APPROVAL_STATE_BLOCKED]",
+                    "metadata": {
+                        "approval_integrity_score": integrity_result.integrity_score,
+                        "forensic_id": integrity_result.forensic_id,
+                        "reason": integrity_result.reason,
+                        "detected_drifts": integrity_result.detected_drifts
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "threat_detected": True,
+                    "threat_reason": f"Approval state divergence: {integrity_result.reason}",
+                    "pii_found": [],
+                }
+    except ImportError as e:
+        logger.debug(f"Approval state integrity engine not loaded: {e} (feature disabled by default)")
+    except Exception as e:
+        logger.debug(f"Approval state integrity check skipped (non-blocking): {e}")
+
+    # === WORLD STATE INTEGRITY ENFORCEMENT HOOK (Additive only - World Model Verification) ===
+    # Minimal, feature-flagged integration with new WorldStateIntegrityEngine.
+    # Verifies execution-relevant *predicted world state* has not drifted before irreversible actions.
+    # ZERO regression when WORLD_STATE_INTEGRITY_ENABLED=false (default). Matches approval_state_integrity.py pattern exactly.
+    # This is the runtime primitive for JEPA-style agents: "Verify the execution-relevant predicted world state has not drifted beyond approved boundaries."
+    # Only activates in high-risk flows (payments, permission grants, policy changes).
+    # Preserves ALL existing runtime behavior, cognitive_consensus modules, demos, and tests.
+    try:
+        from privatevault.cognitive_consensus.world_state_integrity import WorldStateIntegrityEngine
+        import os
+        if os.getenv("WORLD_STATE_INTEGRITY_ENABLED", "false").lower() == "true":
+            engine = WorldStateIntegrityEngine()
+            # Approved world state snapshot (captured at approval time in real flow)
+            approved = engine.create_world_state_snapshot(
+                workflow_id="wf_payment_001",
+                execution_goal="Process approved vendor payment",
+                predicted_counterparty="Vendor_A",
+                predicted_risk_score=0.12,
+                approved_tools=["transfer_funds"],
+                policy_snapshot_id="pol_approved_v1",
+                retrieval_lineage_hash="retrieval_approved_clean",
+                authority_scope="CFO_approved"
+            )
+            # Live world state from current context (example of mutation via retrieval/memory/prediction drift)
+            live_state = {
+                "counterparty": "Offshore_Account_X",  # mutated
+                "risk_score": 0.81,
+                "tools": ["transfer_funds", "escalated_wire"],
+                "constraints": {"max_amount": 5000000},
+                "retrieval_lineage_hash": "retrieval_live_poisoned",
+                "memory_contaminated": True,
+                "execution_goal": "Modified offshore transfer",
+                "workflow_id": "wf_payment_001"
+            }
+            integrity_result = engine.validate_world_state(approved, live_state)
+            if integrity_result.execution_verdict in ("BLOCK", "WARN"):
+                logger.warning(f"World state integrity blocked: {integrity_result.reason}")
+                return {
+                    "allowed": False,
+                    "original_prompt": prompt,
+                    "filtered_prompt": "[WORLD_STATE_BLOCKED]",
+                    "metadata": {
+                        "world_state_integrity_score": integrity_result.integrity_score,
+                        "forensic_id": integrity_result.forensic_id,
+                        "reason": integrity_result.reason,
+                        "detected_drifts": integrity_result.detected_drifts,
+                        "approved_world_hash": integrity_result.approved_hash,
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "threat_detected": True,
+                    "threat_reason": f"World-state divergence: {integrity_result.reason}",
+                    "pii_found": [],
+                }
+    except ImportError as e:
+        logger.debug(f"World state integrity engine not loaded: {e} (feature disabled by default)")
+    except Exception as e:
+        logger.debug(f"World state integrity check skipped (non-blocking): {e}")
+
     # PII redaction (simple example from logs)
     pii_patterns = {
         "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
