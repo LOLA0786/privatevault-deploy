@@ -288,6 +288,48 @@ def filter_input(prompt):
     except Exception as e:
         logger.warning(f"Cognition validation error (fail-open for now): {e}")
 
+    # === CONSENSUS INTEGRITY ENFORCEMENT HOOK (Additive only - Phase 2 of cognitive_consensus) ===
+    # Minimal, feature-flagged integration with new ConsensusIntegrityEngine.
+    # Does NOT change any existing consensus, policy, or execution behavior.
+    # Only activates if COGNITIVE_INTEGRITY_ENABLED=true and snapshots available.
+    # This is the runtime gate for "Can autonomous agent consensus itself be trusted?"
+    try:
+        from privatevault.cognitive_consensus.consensus_integrity_engine import ConsensusIntegrityEngine
+        import os
+        if os.getenv("COGNITIVE_INTEGRITY_ENABLED", "false").lower() == "true":
+            engine = ConsensusIntegrityEngine()
+            # For this hook we create lightweight snapshots (in real flow these come from validator)
+            from privatevault.cognitive_consensus.agent_cognition_snapshot import create_agent_cognition_snapshot
+            snap = create_agent_cognition_snapshot(
+                agent_id=agent_id,
+                tenant_id=tenant_id,
+                reasoning_text=prompt[:200],
+                retrieval_sources=["default_retrieval"],
+                memory_refs=["default_memory"],
+                initial_trust=0.85
+            )
+            integrity_result = engine.adjudicate_consensus([snap], proposed_action="filter_input_execution")
+            if integrity_result.execution_verdict == "BLOCK":
+                logger.warning(f"Consensus integrity blocked: {integrity_result.reason}")
+                return {
+                    "allowed": False,
+                    "original_prompt": prompt,
+                    "filtered_prompt": "[CONSENSUS_INTEGRITY_BLOCKED]",
+                    "metadata": {
+                        "consensus_integrity": integrity_result.consensus_integrity,
+                        "forensic_id": integrity_result.forensic_id,
+                        "reason": integrity_result.reason
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "threat_detected": True,
+                    "threat_reason": f"Consensus contamination: {integrity_result.reason}",
+                    "pii_found": [],
+                }
+    except ImportError as e:
+        logger.debug(f"Consensus integrity engine not loaded: {e} (feature disabled by default)")
+    except Exception as e:
+        logger.debug(f"Consensus integrity check skipped (non-blocking): {e}")
+
     # PII redaction (simple example from logs)
     pii_patterns = {
         "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
