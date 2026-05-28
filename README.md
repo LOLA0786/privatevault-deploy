@@ -9,24 +9,33 @@
 
 **"Governance that cannot independently stop execution is not governance."**
 
-## Live Demo: PrivateVault Stops a $2.5M Poisoning Attack in Real Time
+## Execution Integrity Runtime — WITH vs WITHOUT Contrast (Safety Hardening Pass)
 
+**WITHOUT Execution Integrity Runtime (standard autonomous execution):**
 ```bash
-# One-command enterprise demo (high risk)
-python proof_not_promises_demo.py --risk high
+python demos/treasury_payment_without_privatevault.py
 ```
+→ "Payment approved. Execution completed successfully. Transaction ID logged."
+Even though world-state mutated (Vendor_A → Offshore_Account_X). Logs show perfect success.
 
-**What happened in the demo (real runtime):**
+**WITH Execution Integrity Runtime (additive, feature-flagged):**
+```bash
+WORLD_STATE_INTEGRITY_ENABLED=true WORLD_STATE_REPLAY_ENABLED=true python demos/treasury_payment_with_privatevault.py
+```
+→ World-state drift detected → deterministic replay shows exact divergence chain (T+00s approval → mutation → integrity collapse) → EXECUTION BLOCKED.
 
-- Clean approval granted ($2,500 vendor payment, snapshot sealed with Merkle hash)
-- Adversary mutated cognitive state post-approval (classic context poisoning → $2.5M offshore wire)
-- PrivateVault pre-execution gate detected drift (0.52 > 0.08 threshold for high-risk)
-- Trust collapsed (0.92 → 0.19 via multiplicative decay)
-- Approval binding + Merkle divergence triggered
-- Execution blocked before tool call
-- Full deterministic replay + forensic receipt generated
+**Canonical validation runner (recommended after any change):**
+```bash
+python scripts/validate_execution_integrity_demos.py
+```
+Verifies contrast, replay determinism, flag behavior, and no regressions.
 
-**Terminal output (exact from latest run):**
+**What the contrast demonstrates (stable runtime):**
+- WITHOUT: Traditional observability/logs can perfectly record compromised execution.
+- WITH: Execution Integrity Runtime (Consensus, Approval-State, World-State Integrity + Deterministic Replay) verifies approved vs live predicted state before irreversible actions.
+- All systems additive-only and silent when flags disabled. Existing demos, replay behavior, and gating unchanged.
+
+**Terminal output example (WITH demo):**
 
 ```
 REAL GROK REASONING:
