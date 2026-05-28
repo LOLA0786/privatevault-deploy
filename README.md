@@ -3,7 +3,7 @@ Decision Security Runtime for Accountable AI Autonomy
 
 PrivateVault is a runtime governance platform for autonomous AI systems.
 
-Modern agents can execute tools, trigger workflows, access APIs, and modify production state — but most AI stacks still lack reliable answers to critical questions:
+Modern agents can execute tools, trigger workflows, access APIs, and modify production state  but most AI stacks still lack reliable answers to critical questions:
 
 Who authorized this action?
 What policy allowed it?
