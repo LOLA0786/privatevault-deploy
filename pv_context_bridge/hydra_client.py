@@ -2,9 +2,21 @@ import os
 import requests
 import json
 import uuid
+from typing import Any
+
+from pv_memory.memory_integrity_store import (
+    memory_integrity_store,
+    MemoryIntegrityViolation,
+    MemoryIntegrityRecord,
+)
 
 HYDRA_API_KEY = os.getenv("HYDRADB_API_KEY")
 BASE_URL = "https://api.hydradb.com"
+
+
+class ContextContaminationError(Exception):
+    """Raised when memory integrity or contamination scan fails on RAG context."""
+    pass
 
 class HydraClient:
     def __init__(self, tenant_id="privatevault-demo", sub_tenant_id="demo"):
@@ -12,6 +24,17 @@ class HydraClient:
         self.sub_tenant_id = sub_tenant_id
 
     def ingest_policy(self, content_text):
+        # === MEMORY INTEGRITY WIRE (Module 2): write on ingest ===
+        memory_key = f"policy:{hash(content_text)}"
+        memory_integrity_store.write(
+            memory_key=memory_key,
+            content=content_text,
+            agent_id="hydra-ingest",
+            tenant_id=self.tenant_id,
+            write_source="hydra_client.ingest_policy"
+        )
+        # ========================================================
+
         headers = {
             "Authorization": f"Bearer {HYDRA_API_KEY}"
         }
@@ -65,7 +88,22 @@ class HydraClient:
             json=payload
         )
 
-        return response.json()
+        result = response.json()
+
+        # === MEMORY INTEGRITY WIRE (Module 2): read on query (real RAG path) ===
+        memory_key = f"query:{hash(question)}"
+        try:
+            memory_integrity_store.read(
+                memory_key=memory_key,
+                agent_id="hydra-query",
+                tenant_id=self.tenant_id,
+                expected_content=result  # verify returned context
+            )
+        except MemoryIntegrityViolation as e:
+            raise ContextContaminationError(f"Context poisoned: {str(e)}") from e
+        # ===============================================================
+
+        return result
 
 
 if __name__ == "__main__":

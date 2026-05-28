@@ -245,6 +245,48 @@ def filter_input(prompt):
             threat_reason = f"Prompt injection detected: {pattern}"
             break
 
+    # === CRITICAL COGNITION INTEGRITY HOOK (Module 1 - pre_execution_cognitive_validator) ===
+    # This is the exact insertion point before any execution or context passing.
+    # Captures snapshot and validates cognitive state (intent drift, memory poisoning, reasoning integrity).
+    try:
+        from pv_cognition.cognition_snapshot import create_snapshot
+        from pv_cognition.pre_execution_cognitive_validator import validate_cognition_before_execution
+        # In real gateway flow, agent_id/tenant_id/context would be passed from caller.
+        # For this standalone filter_input, we use defaults for testing.
+        agent_id = "default-agent"
+        tenant_id = "default-tenant"
+        current_snapshot = create_snapshot(
+            agent_id=agent_id,
+            tenant_id=tenant_id,
+            context=prompt,
+            intent="default-intent-from-system-prompt",
+            retrieval_sources=[],
+            tool_calls_pending=[],
+            call_sequence=0
+        )
+        cognition_decision = validate_cognition_before_execution(
+            agent_id=agent_id,
+            tenant_id=tenant_id,
+            action={"prompt": prompt},
+            current_snapshot=current_snapshot
+        )
+        if cognition_decision.verdict in ("BLOCK", "ESCALATE"):
+            logger.warning(f"Cognition violation blocked: {cognition_decision.reason}")
+            return {
+                "allowed": False,
+                "original_prompt": prompt,
+                "filtered_prompt": "[COGNITION_BLOCKED]",
+                "metadata": {"cognition_decision": cognition_decision.verdict},
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "threat_detected": True,
+                "threat_reason": f"Cognition integrity failure: {cognition_decision.reason}",
+                "pii_found": [],
+            }
+    except ImportError as e:
+        logger.debug(f"Cognition module not yet loaded: {e} (non-blocking in base firewall)")
+    except Exception as e:
+        logger.warning(f"Cognition validation error (fail-open for now): {e}")
+
     # PII redaction (simple example from logs)
     pii_patterns = {
         "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
