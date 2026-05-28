@@ -1,3 +1,22 @@
+[project]
+name = "privatevault-sdk"
+version = "0.2.0"
+description = "Decision Security Control Plane for autonomous agents. Pre-execution cognitive validation, Merkle lineage, deterministic replay."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.25.0",
+    "redis>=5.0.0",
+    "pydantic>=2.0.0",
+    "rich>=13.0.0",  # for pvctl CLI polish
+]
+
+[project.optional-dependencies]
+langchain = ["langchain>=0.1.0", "langgraph>=0.1.0"]
+crewai = ["crewai>=0.1.0"]
+dev = ["pytest>=8.0.0", "ruff>=0.1.0"]
+all = ["langchain>=0.1.0", "langgraph>=0.1.0", "crewai>=0.1.0"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
