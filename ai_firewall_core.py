@@ -268,7 +268,8 @@ def filter_input(prompt):
             agent_id=agent_id,
             tenant_id=tenant_id,
             action={"prompt": prompt},
-            current_snapshot=current_snapshot
+            current_snapshot=current_snapshot,
+            approval=None  # FIX 2: pass approval (even if None) so binding logic executes
         )
         if cognition_decision.verdict in ("BLOCK", "ESCALATE"):
             logger.warning(f"Cognition violation blocked: {cognition_decision.reason}")

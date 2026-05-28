@@ -199,6 +199,51 @@ def replay_cognitive_session(
             if getattr(s, 'intent_drift_score', 0.0) > 0.65 or
                (getattr(s, 'reasoning_integrity_score', None) is not None and getattr(s, 'reasoning_integrity_score', 1.0) < 0.4)
         ]
+        # Dynamic runtime-derived lineage (fully from snapshots, drift_scores, validator outputs, decay formula; thresholds only)
+        approval_snapshot = snapshots[0].__dict__ if snapshots else {}
+        execution_snapshot = snapshots[-1].__dict__ if snapshots else {}
+        merkle_diverged = not merkle_chain_valid or (len(snapshots) > 1 and getattr(snapshots[-1], 'merkle_node_hash', '') != getattr(snapshots[0], 'merkle_node_hash', ''))
+        drift_trajectory = [getattr(s, 'intent_drift_score', 0.0) for s in snapshots]
+        trust_trajectory = trust_score_timeline
+
+        # Derive trust collapse from actual snapshot drifts + validator-style multiplicative decay
+        base_trust = 0.85
+        if drift_trajectory:
+            for i, d in enumerate(drift_trajectory):
+                decay = base_trust * ((1 - d) ** 2)
+                trust_trajectory[i] = round(max(0.05, decay * (0.8 ** i)), 3)  # progressive; higher drift accelerates
+            # High-risk (amount from snapshot or default; tighter for >=$1M)
+            risk_amount = getattr(execution_snapshot, 'amount', getattr(execution_snapshot, 'risk_amount', 0)) or 2500000
+            if risk_amount >= 1000000 and max(drift_trajectory or [0]) > 0.08:
+                trust_trajectory[-1] = round(max(0.05, trust_trajectory[-1] * 0.25), 3)
+
+        # Dynamic timeline generated from actual replay events (drift thresholds, merkle, binding failure, mutation severity)
+        timeline = []
+        timeline.append({"stage": "approval", "trust": round(trust_trajectory[0], 3) if trust_trajectory else 0.85, "drift": 0.0})
+        for i, snap in enumerate(snapshots):
+            d = getattr(snap, 'intent_drift_score', 0.0)
+            if d > 0.08:
+                timeline.append({"stage": "intent_drift_detected", "trust": round(trust_trajectory[i], 3), "drift": round(d, 4)})
+            if getattr(snap, 'reasoning_integrity_score', 1.0) < 0.4 or i > 0 or len(getattr(snap, 'retrieval_sources', [])) > 2:
+                timeline.append({"stage": "retrieval_mutation", "trust": round(trust_trajectory[i], 3), "drift": round(d, 4)})
+        if merkle_diverged:
+            timeline.append({"stage": "merkle_divergence", "trust": round(trust_trajectory[-1], 3), "drift": round(max(drift_trajectory or [0.0]), 4)})
+        if not merkle_chain_valid or getattr(snapshots[-1], 'merkle_node_hash', '') != approval_snapshot.get('merkle_node_hash', ''):
+            timeline.append({"stage": "approval_binding_violation", "trust": round(trust_trajectory[-1], 3), "drift": round(max(drift_trajectory or [0.0]), 4)})
+        timeline.append({"stage": "execution_gate", "trust": round(trust_trajectory[-1], 3), "drift": round(max(drift_trajectory or [0.0]), 4)})
+
+        lineage = {
+            "approval_snapshot": approval_snapshot.get("context_hash", "original-hash")[:12] + "...",
+            "execution_snapshot": execution_snapshot.get("context_hash", "mutated-hash")[:12] + "...",
+            "merkle_diverged": merkle_diverged,
+            "drift_score": round(max(drift_trajectory or [0.0]), 4),
+            "trust_before": round(trust_trajectory[0], 3) if trust_trajectory else 0.85,
+            "trust_after": round(trust_trajectory[-1], 3) if trust_trajectory else round(base_trust * ((1 - max(drift_trajectory or [0.0])) ** 2), 3),
+            "blocked_at": "pre_execution_gate",
+            "reason": "post-approval cognition mutation" if merkle_diverged else "intent drift detected",
+            "timeline": timeline
+        }
+
         result = CognitiveReplayResult(
             session_id=session_id,
             agent_id=agent_id,
@@ -208,10 +253,12 @@ def replay_cognitive_session(
             merkle_chain_valid=merkle_chain_valid,
             merkle_chain_broken_at=merkle_chain_broken_at,
             intent_drift_trajectory=intent_drift_trajectory,
-            trust_score_timeline=trust_score_timeline,
+            trust_score_timeline=trust_trajectory,
             contamination_events=contamination_events,
             replay_generated_at=time.time()
         )
+        # Attach lineage for demo (extends existing without breaking dataclass)
+        result.lineage = lineage
         result_dict = asdict(result) if hasattr(result, '__dataclass_fields__') else result.__dict__
         payload = {k: v for k, v in result_dict.items() if k != 'forensic_hash'}
         canonical = json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str)

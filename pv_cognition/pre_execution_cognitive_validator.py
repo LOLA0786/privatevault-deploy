@@ -40,10 +40,35 @@ def validate_cognition_before_execution(
     Order: drift -> reasoning -> authority binding -> memory check.
     """
     flags = {}
-    effective_trust = 0.85  # baseline; adjusted by detectors
+    # FIX 3: Dynamic trust decay (per REAL fix). Poisoned cognition materially reduces trust.
+    base_trust = 0.85
+    drift_score = abs(getattr(current_snapshot, "intent_drift_score", 0.0))
+    effective_trust = base_trust * ((1 - drift_score) ** 2)
+    effective_trust = round(max(0.0, effective_trust), 3)
 
     # 1. Intent drift (uses existing drift_detector)
     drift_event = drift_detector.compute_drift(current_snapshot)
+
+    # FIX 1: Make drift executional (per REAL fix). High-risk actions have tighter thresholds.
+    drift_score = abs(getattr(current_snapshot, "intent_drift_score", 0.0))
+    # High-risk action thresholds
+    risk_amount = action.get("amount", 0)
+    max_drift = 0.08 if risk_amount >= 1_000_000 else 0.25
+
+    if drift_score > max_drift:
+        return CognitionDecision(
+            verdict="BLOCK",
+            reason=f"Intent drift {drift_score:.4f} exceeds threshold {max_drift}",
+            snapshot_id=current_snapshot.snapshot_id,
+            effective_trust=max(0.05, 0.85 * ((1 - drift_score) ** 2)),
+            flags={
+                "drift_score": drift_score,
+                "max_drift": max_drift,
+                "risk_amount": risk_amount,
+                "execution_blocked": True,
+            }
+        )
+
     if drift_event.verdict in ("BLOCK", "ESCALATE"):
         return CognitionDecision(
             verdict=drift_event.verdict,

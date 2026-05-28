@@ -93,6 +93,7 @@ def create_snapshot(
     call_sequence: int = 0,
     intent_vector: List[float] = None,
     context_vector: List[float] = None,
+    intent_drift_score: float = None,
 ) -> CognitionSnapshot:
     """Factory for snapshots — called from gateway/ai_firewall_core.py."""
     if retrieval_sources is None:
@@ -105,14 +106,16 @@ def create_snapshot(
         intent_vector = [0.1] * 8  # placeholder (real embedding in production)
     if context_vector is None:
         context_vector = [0.2] * 8
+    if intent_drift_score is None:
+        # Simple cosine similarity for drift (production would use sentence-transformers)
+        dot = sum(a * b for a, b in zip(intent_vector, context_vector))
+        norm_a = (sum(x * x for x in intent_vector) ** 0.5) or 1.0
+        norm_b = (sum(x * x for x in context_vector) ** 0.5) or 1.0
+        intent_drift_score = 1.0 - (dot / (norm_a * norm_b))
+    else:
+        intent_drift_score = float(intent_drift_score)
 
-    # Simple cosine similarity for drift (production would use sentence-transformers)
-    dot = sum(a * b for a, b in zip(intent_vector, context_vector))
-    norm_a = (sum(x * x for x in intent_vector) ** 0.5) or 1.0
-    norm_b = (sum(x * x for x in context_vector) ** 0.5) or 1.0
-    intent_drift_score = 1.0 - (dot / (norm_a * norm_b))
-
-    return CognitionSnapshot(
+    snap = CognitionSnapshot(
         snapshot_id=str(uuid.uuid4()),
         agent_id=agent_id,
         tenant_id=tenant_id,
@@ -123,11 +126,14 @@ def create_snapshot(
         tool_calls_pending=tool_calls_pending,
         intent_vector=intent_vector,
         context_vector=context_vector,
-        intent_drift_score=round(intent_drift_score, 4),
+        intent_drift_score=round(intent_drift_score, 4) if 'intent_drift_score' in locals() else round(1.0 - (dot / (norm_a * norm_b)), 4),
         memory_refs=memory_refs,
         parent_snapshot_id=parent_snapshot_id,
         reasoning_integrity_score=None,  # Set by reasoning_chain_verifier.py
     )
+    if 'intent_drift_score' in locals() and intent_drift_score is not None:
+        snap.intent_drift_score = round(intent_drift_score, 4)
+    return snap
 
 
 # Test hook (run after delivery)
