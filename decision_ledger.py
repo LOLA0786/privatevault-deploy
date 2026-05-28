@@ -337,3 +337,10 @@ except Exception:
 
     def map_event_to_controls(event_type, tool_name, metadata):
         return []
+
+
+def log_decision(event_type, metadata):
+    """
+    Backward-compatible wrapper expected by older demos.
+    """
+    return log_event(event_type, metadata)
