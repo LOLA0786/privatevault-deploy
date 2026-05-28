@@ -187,4 +187,4 @@ Replay Hash: {report.forensic_hash}
 
 
 if __name__ == "__main__":
-    print("Cognitive Audit Report Generator ready for Module 3 te
+    print("Cognitive Audit Report Generator ready.")
